@@ -75,6 +75,38 @@ namespace ConsoleX
             return GetStringResponse(answers);
         }
 
+        public int GetSelection<T>(IEnumerable<T> options, Func<T,string> TtoString)
+        {
+            var responses = options.Select(o => TtoString(o)).ToArray();
+            return GetResponse(responses);
+        }
+
+        /// <summary>
+        /// Allows the selection of multiple options
+        /// </summary>
+        /// <typeparam name="T">the type of option</typeparam>
+        /// <param name="options">the available options</param>
+        /// <param name="TtoString">a transform to convert an option to a string for selection</param>
+        /// <returns>the indicies of the options chosen</returns>
+        public int[] GetMultipleSelection<T>(IEnumerable<T> options, Func<T, string> TtoString)
+        {
+            var responses = options.Select(o => TtoString(o)).ToArray();
+            int i = 0;
+            foreach (var option in options)
+            {
+                try
+                {
+                    Write($"{i}: {TtoString(option)}");
+                }
+                catch (Exception e)
+                {
+                    WriteError(e.Message);
+                }
+                i++;
+            }
+            return GetMultipleIntInput("Which do you want (eg. 1-4,7,9,15-22)?");
+        }
+
         public double GetDoubleInput(string prompt)
         {
             double response = double.NaN;
@@ -124,12 +156,39 @@ namespace ConsoleX
             return options[resp].Invoke();
         }
 
+        #region PROGRESS BAR     
         /// <summary>
-        /// Gets a progress bar at the specified width. Use the report method of the progress bar to update
+        /// An ASCII progress bar (https://www.codeproject.com/Tips/5255878/A-Console-Progress-Bar-in-Csharp)
         /// </summary>
-        /// <param name="blockCount"></param>
-        /// <returns></returns>
-        public ProgressBar ProgressBar(int blockCount = 20) { return new ProgressBar(ProgressBarColor, blockCount); }
+        const char _block = '■';
+        const string _back = "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b";
+        const string _twirl = "-\\|/";
+
+        public void WriteProgressBar(int percent, bool update = false)
+        {
+            if (update) { Console.Write(_back); }
+            Console.Write("[");
+            Console.ForegroundColor = ProgressBarColor;
+            var p = (int)((percent / 10f) + .5f);
+            for (var i = 0; i < 10; ++i)
+            {
+                if (i >= p)
+                    Console.Write(' ');
+                else
+                    Console.Write(_block);
+            }
+            Console.ResetColor();
+            Console.Write("] {0,3:##0}%", percent);
+        }
+
+        public void WriteProgress(int progress, bool update = false)
+        {
+            if (update) { Console.Write("\b"); }
+            Console.ForegroundColor = ProgressBarColor;
+            Console.Write(_twirl[progress % _twirl.Length]);
+            Console.ResetColor();
+        }
+        #endregion
 
         public string GetStringInput(string prompt)
         {
@@ -208,6 +267,35 @@ namespace ConsoleX
                     WritePrompt($"Please enter a valid integer value, last value {possibleInt}");
                 }
                 else { valid = true; }
+            }
+            return response;
+        }
+
+        /// <summary>
+        /// Gets an integer input value
+        /// </summary>
+        public int[] GetMultipleIntInput(string prompt)
+        {
+            int[] response = new int[0];
+            if (!string.IsNullOrEmpty(prompt))
+                WritePrompt(prompt);
+            var valid = false;
+            while (!valid)
+            {
+                var possibleInt = Console.ReadLine();
+                try
+                {
+                    response = possibleInt.Split(',')
+                         .Select(x => x.Split('-'))
+                         .Select(p => new { First = int.Parse(p.First()), Last = int.Parse(p.Last()) })
+                         .SelectMany(x => Enumerable.Range(x.First, x.Last - x.First + 1))
+                         .OrderBy(z => z).ToArray();
+                    valid = true;
+                }
+                catch (Exception)
+                {
+                    WritePrompt($"Please enter a valid integer value, last value {possibleInt}");
+                }
             }
             return response;
         }

@@ -8,109 +8,34 @@ using System.Threading.Tasks;
 namespace ConsoleX
 {
     /// <summary>
-    /// An ASCII progress bar
+    /// An ASCII progress bar (https://www.codeproject.com/Tips/5255878/A-Console-Progress-Bar-in-Csharp)
     /// </summary>
-    public class ProgressBar : IDisposable
+    public static class ProgressBar
     {
-        private int blockCount = 20;
-        private readonly TimeSpan animationInterval = TimeSpan.FromSeconds(1.0 / 8);
-        private const string animation = @"|/-\";
+        const char _block = '■';
+        const string _back = "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b";
+        const string _twirl = "-\\|/";
 
-        private readonly Timer timer;
-
-        private double currentProgress = 0;
-        private string currentText = string.Empty;
-        private bool disposed = false;
-        private int animationIndex = 0;
-        private ConsoleColor progressColor;
-
-        public ProgressBar(ConsoleColor progressColor = ConsoleColor.Green, int blockCount = 20)
+        public static void WriteProgressBar(int percent, bool update = false)
         {
-            this.blockCount = blockCount;
-            timer = new Timer(TimerHandler);
-            this.progressColor = progressColor;
-            // A progress bar is only for temporary display in a console window.
-            // If the console output is redirected to a file, draw nothing.
-            // Otherwise, we'll end up with a lot of garbage in the target file.
-            //if (!Console.IsOutputRedirected)
-            //{
-            ResetTimer();
-            //}
-        }
-
-        /// <summary>
-        /// Updates the progress bar with the value on a scale of 100, scale can be adjusted with optional maxValue input
-        /// </summary>
-        /// <param name="value"></param>
-        /// <param name="maxValue"></param>
-        public void Report(double value, double maxValue = 100)
-        {
-            value = value / maxValue;
-            // Make sure value is in [0..1] range
-            value = Math.Max(0, Math.Min(1, value));
-            Interlocked.Exchange(ref currentProgress, value);
-        }
-
-        private void TimerHandler(object state)
-        {
-            lock (timer)
+            if (update)
+                Console.Write(_back);
+            Console.Write("[");
+            var p = (int)((percent / 10f) + .5f);
+            for (var i = 0; i < 10; ++i)
             {
-                if (disposed) return;
-
-                int progressBlockCount = (int)(currentProgress * blockCount);
-                int percent = (int)(currentProgress * 100);
-                string text = string.Format("[{0}{1}] {2,3}% {3}",
-                    new string('#', progressBlockCount), new string('-', blockCount - progressBlockCount),
-                    percent,
-                    animation[animationIndex++ % animation.Length]);
-                UpdateText(text);
-
-                ResetTimer();
+                if (i >= p)
+                    Console.Write(' ');
+                else
+                    Console.Write(_block);
             }
+            Console.Write("] {0,3:##0}%", percent);
         }
-
-        public void UpdateText(string text)
+        public static void WriteProgress(int progress, bool update = false)
         {
-            // Get length of common portion
-            int commonPrefixLength = 0;
-            int commonLength = Math.Min(currentText.Length, text.Length);
-            while (commonPrefixLength < commonLength && text[commonPrefixLength] == currentText[commonPrefixLength])
-            {
-                commonPrefixLength++;
-            }
-
-            // Backtrack to the first differing character
-            StringBuilder outputBuilder = new StringBuilder();
-            outputBuilder.Append('\b', currentText.Length - commonPrefixLength);
-
-            // Output new suffix
-            outputBuilder.Append(text.Substring(commonPrefixLength));
-
-            // If the new text is shorter than the old one: delete overlapping characters
-            int overlapCount = currentText.Length - text.Length;
-            if (overlapCount > 0)
-            {
-                outputBuilder.Append(' ', overlapCount);
-                outputBuilder.Append('\b', overlapCount);
-            }
-            Console.ForegroundColor = progressColor;
-            Console.Write(outputBuilder);
-            Console.ResetColor();
-            currentText = text;
-        }
-
-        private void ResetTimer()
-        {
-            timer.Change(animationInterval, TimeSpan.FromMilliseconds(-1));
-        }
-
-        public void Dispose()
-        {
-            lock (timer)
-            {
-                disposed = true;
-                UpdateText(string.Empty);
-            }
+            if (update)
+                Console.Write("\b");
+            Console.Write(_twirl[progress % _twirl.Length]);
         }
     }
 }
